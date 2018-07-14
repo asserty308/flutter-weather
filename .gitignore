@@ -1,6 +1,7 @@
 # Project specific
 secrets.json
 *.png
+*google-services.json
 
 # Miscellaneous
 *.class
