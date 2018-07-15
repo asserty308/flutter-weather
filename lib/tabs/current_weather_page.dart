@@ -1,63 +1,74 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:weather_app/api/google_maps_api.dart';
 import 'package:weather_app/api/weather_api.dart';
 import 'package:weather_app/utils/date_utils.dart';
 import 'package:weather_app/utils/weather_utils.dart';
 import 'package:weather_app/widgets/current_weather_widget.dart';
 import 'package:weather_app/widgets/forecast_widget.dart';
+import 'package:location/location.dart';
+import 'package:flutter/services.dart';
+
+/// Shows the weather at the current location
 
 class CurrentWeatherPage extends StatefulWidget {
-  CurrentWeatherPage({Key key, this.city}) : super(key: key);
-  final String city;
-
   @override
-  _CurrentWeatherPageState createState() =>
-      new _CurrentWeatherPageState(
-          city: this.city
-      );
+  _CurrentWeatherPageState createState() => new _CurrentWeatherPageState();
 }
 
 class _CurrentWeatherPageState extends State<CurrentWeatherPage> {
-  final String city;
+  // Weather
   WeatherInfo weatherData;
-  String latestWeatherUpdate = "";
-  int latestTemperature;
   bool dataFetched = false;
+
+  // Location
+  String city = "";
+  Map<String, double> currentLocation;
+  StreamSubscription<Map<String, double>> locationSubscription;
+  Location _location = new Location();
 
   final Color fontColor = Color(0xff696969);
 
-  _CurrentWeatherPageState({this.city});
+  _CurrentWeatherPageState();
 
-  updateLatestFetchTime() async {
-    DateTime date = DateTime.now();
-    String timeStr = "${date.day}.${date.month}.${date.year}, ${date.hour}:${date.minute} Uhr";
+  // Platform messages are asynchronous, so we initialize in an async method.
+  getCurrentLocation() async {
+    Map<String, double> location;
+    // Platform messages may fail, so we use a try/catch PlatformException.
+    try {
+      location = await _location.getLocation;
+    } on PlatformException catch (e) {
+      if (e.code == 'PERMISSION_DENIED') {
+        print('Permission denied');
+      } else if (e.code == 'PERMISSION_DENIED_NEVER_ASK') {
+        print('Permission denied - please ask the user to enable it from the app settings');
+      }
 
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setString("latest_weather_update_time", timeStr);
-
-    setLatestWeatherUpdate();
-  }
-
-  setLatestWeatherUpdate() async {
-    final prefs = await SharedPreferences.getInstance();
-    String time = prefs.getString("latest_weather_update_time");
-
-    if (time == null || time.isEmpty) {
-      time = "niemals";
+      location = null;
     }
 
+    // If the widget was removed from the tree while the asynchronous platform
+    // message was in flight, we want to discard the reply rather than calling
+    // setState to update our non-existent appearance.
+    if (!mounted) return;
+
     setState(() {
-      this.latestWeatherUpdate = time;
+      currentLocation = location;
+      getWeatherData();
     });
   }
 
   getWeatherData() async {
+    final lat = currentLocation["latitude"].toString();
+    final lng = currentLocation["longitude"].toString();
+    this.city = await getCityFromLatLong(lat, lng) ?? "";
+
     this.weatherData = await fetchWeather(this.city, "");
 
     if (this.weatherData != null) {
       if (!this.dataFetched) {
         this.dataFetched = true;
-        updateLatestFetchTime();
       }
 
       setState(() {
@@ -69,8 +80,8 @@ class _CurrentWeatherPageState extends State<CurrentWeatherPage> {
   void initState() {
     super.initState();
 
-    setLatestWeatherUpdate();
-    getWeatherData();
+    // Get current location. When found, fetch weather data
+    getCurrentLocation();
   }
 
   @override

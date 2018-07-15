@@ -42,3 +42,33 @@ Future<List<String>> getAutocompleteLocation(String searchStr) async {
 
   return predictions;
 }
+
+/// Requests the Geocoding API for the city at given coordinates
+Future<String> getCityFromLatLong(String lat, String lng) async {
+  var url = "https://maps.googleapis.com/maps/api/geocode/json";
+
+  var secrets = await SecretsLoader(secretsPath: "secrets.json").load();
+  var apiKey = secrets.googleApiKey;
+  
+  final response = await http.get(url + "?latlng=" + lat + "," + lng + "&key=" + apiKey);
+  final responseJSON = json.decode(response.body);
+
+  var resultsArray = responseJSON["results"][0]["address_components"] as List;
+
+  // search result types for the city name
+  for (var item in resultsArray) {
+    // types are the 2nd index
+    var types = item["types"];
+
+    if (types == null) {
+      continue;
+    }
+
+    if (types.contains("locality")) {
+      // locality always shows the city name
+      return item["long_name"];
+    }
+  }
+
+  return "";
+}

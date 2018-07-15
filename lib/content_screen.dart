@@ -32,7 +32,7 @@ class ContentScreenState extends State<ContentScreen> with SingleTickerProviderS
       body: TabBarView(
         controller: this.controller,
         children: <Widget>[
-          CurrentWeatherPage(city: "Mönchengladbach",),
+          CurrentWeatherPage(),
           CityOverviewPage(),
           AppSettingsTab(),
       ]),
